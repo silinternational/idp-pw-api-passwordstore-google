@@ -1,0 +1,25 @@
+{
+  "name": "silinternational/idp-pw-api-passwordstore-google",
+  "description": "Password store component for IdP PW API that uses Google as the backend.",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Matt Henderson",
+      "email": "matt_henderson@sil.org"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=7.0.0",
+    "silinternational/idp-pw-api-common": "^1.0",
+    "fillup/fake-bower-assets": "^2.0.9"
+  },
+  "require-dev": {
+    "roave/security-advisories": "dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "Sil\\IdpPw\\PasswordStore\\Google\\": "src/"
+    }
+  }
+}
