@@ -11,8 +11,9 @@
   "minimum-stability": "stable",
   "require": {
     "php": ">=7.0.0",
-    "silinternational/idp-pw-api-common": "^1.0",
-    "fillup/fake-bower-assets": "^2.0.9"
+    "fillup/fake-bower-assets": "^2.0.9",
+    "google/apiclient": "^2.0",
+    "silinternational/idp-pw-api-common": "^1.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master"
