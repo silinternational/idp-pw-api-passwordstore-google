@@ -1,8 +1,11 @@
 <?php
 namespace Sil\IdpPw\PasswordStore\Google;
 
+use Exception;
 use Google_Client;
 use Google_Service_Directory;
+use Google_Service_Directory_Resource_Users;
+use Google_Service_Directory_User;
 use Sil\IdpPw\Common\PasswordStore\AccountLockedException;
 use Sil\IdpPw\Common\PasswordStore\PasswordStoreInterface;
 use Sil\IdpPw\Common\PasswordStore\UserNotFoundException;
@@ -12,7 +15,41 @@ use yii\base\Component;
 class Google extends Component implements PasswordStoreInterface
 {
     public $applicationName = null;
+    
+    /**
+     * The email address of a delegated admin in the Google Apps instance where
+     * the users exist that you will be retrieving/modifying.
+     *
+     * @var string
+     */
+    public $delegatedAdminEmail = null;
+    
+    /**
+     * The name of the field on the $userActiveRecordClass where the email
+     * address is stored.
+     *
+     * @var string
+     */
+    public $emailFieldName = 'email';
+    
+    /**
+     * The name of the field on the $userActiveRecordClass where the Employee ID
+     * is stored.
+     *
+     * @var string
+     */
+    public $employeeIdFieldName = 'employee_id';
+    
     public $jsonAuthFilePath = null;
+    
+    /**
+     * Full class path for a user model (which must be a subclass of
+     * \yii\db\ActiveRecord) which we can use to look up the email address for
+     * the given employeeId.
+     *
+     * @var string
+     */
+    public $userActiveRecordClass = '\common\models\User';
     
     private $googleClient = null;
     
@@ -28,7 +65,11 @@ class Google extends Component implements PasswordStoreInterface
         }
         $requiredProperties = [
             'applicationName',
+            'delegatedAdminEmail',
+            'emailFieldName',
+            'employeeIdFieldName',
             'jsonAuthFilePath',
+            'userActiveRecordClass',
         ];
         foreach ($requiredProperties as $requiredProperty) {
             if (empty($requiredProperty)) {
@@ -46,20 +87,46 @@ class Google extends Component implements PasswordStoreInterface
     protected function getClient()
     {
         if ($this->googleClient === null) {
-            $jsonAuthString = \file_get_contents($this->jsonAuthFilePath);
-            $authConfig = Json::decode($jsonAuthString);
-            
             $googleClient = new Google_Client();
             $googleClient->setApplicationName($this->applicationName);
+            $googleClient->setAuthConfig($this->jsonAuthFilePath);
             $googleClient->addScope(
                 Google_Service_Directory::ADMIN_DIRECTORY_USER
             );
-            $googleClient->setAuthConfig($authConfig);
-            $googleClient->setAccessType('offline');
-            
+            $googleClient->setSubject($this->delegatedAdminEmail);
             $this->googleClient = $googleClient;
         }
         return $this->googleClient;
+    }
+    
+    /**
+     * Look up the email address for the user that has the given Employee ID.
+     *
+     * @param string $employeeId The Employee ID of the desired user.
+     * @return string The email address for that user.
+     * @throws UserNotFoundException
+     * @throws Exception
+     */
+    protected function getEmailForEmployeeId($employeeId)
+    {
+        $userActiveRecord = $this->userActiveRecordClass::findOne([
+            $this->employeeIdFieldName => $employeeId,
+        ]);
+        
+        if ($userActiveRecord === null) {
+            throw new UserNotFoundException();
+        }
+        
+        $emailFieldName = $this->emailFieldName;
+        if (empty($userActiveRecord->$emailFieldName)) {
+            throw new Exception(sprintf(
+                "No email address found for user %s, and without that we "
+                . "cannot retrieve the user's record from Google.",
+                var_export($employeeId, true)
+            ), 1497980234);
+        }
+        
+        return $userActiveRecord->$emailFieldName;
     }
     
     /**
@@ -67,21 +134,43 @@ class Google extends Component implements PasswordStoreInterface
      */
     public function getMeta($employeeId): UserPasswordMeta
     {
-        $user = $this->getUser($employeeId);
-        if ( ! empty($user)) {
-            
-            
-            // ...
-            
-            
-        }
+        $this->getUser($employeeId);
+        
+        /* Note: Google doesn't tell use when the user's password expires, so
+         * simply return an "empty" UserPasswordMeta object.  */
+        return UserPasswordMeta::create('', '');
     }
     
+    /**
+     * Get the user record (from Google) that corresponds to the given
+     * Employee ID.
+     *
+     * @param string $employeeId The Employee ID of the desired user.
+     * @return Google_Service_Directory_User The user record from Google.
+     */
     protected function getUser($employeeId)
     {
+        $email = $this->getEmailForEmployeeId($employeeId);
+        return $this->getUserFromGoogle($email);
+    }
+    
+    /**
+     * Get the user record from Google that has the given email address.
+     *
+     * @param string $email The email address.
+     * @return Google_Service_Directory_User The user record from Google.
+     * @throws UserNotFoundException
+     * @throws Exception
+     */
+    protected function getUserFromGoogle($email)
+    {
         try {
-            $directory = new Google_Service_Directory($this->getClient());
-            return $directory->users->get($employeeId);
+            $usersResource = $this->getUsersResource();
+            $googleUser = $usersResource->get($email);
+            if ($googleUser->suspended) {
+                throw new AccountLockedException();
+            }
+            return $googleUser;
         } catch (Exception $e){
             if ($e->getCode() == 404) {
                 throw new UserNotFoundException();
@@ -91,10 +180,38 @@ class Google extends Component implements PasswordStoreInterface
     }
     
     /**
+     * Get the object we will use for interacting with user records on Google.
+     *
+     * @return Google_Service_Directory_Resource_Users
+     */
+    protected function getUsersResource()
+    {
+        $directory = new Google_Service_Directory($this->getClient());
+        return $directory->users;
+    }
+    
+    /**
+     * Save the changes (on the given Google user record) back to Google.
+     *
+     * @param Google_Service_Directory_User $googleUser A Google user record.
+     */
+    protected function saveChangesTo($googleUser)
+    {
+        $usersResource = $this->getUsersResource();
+        $usersResource->update($googleUser->primaryEmail, $googleUser);
+    }
+    
+    /**
      * {@inheritdoc}
      */
     public function set($employeeId, $password): UserPasswordMeta
     {
+        $googleUser = $this->getUser($employeeId);
+        $googleUser->setPassword($password);
+        $this->saveChangesTo($googleUser);
         
+        /* Note: Google doesn't tell use when the user's password expires, so
+         * simply return an "empty" UserPasswordMeta object.  */
+        return UserPasswordMeta::create('', '');
     }
 }
