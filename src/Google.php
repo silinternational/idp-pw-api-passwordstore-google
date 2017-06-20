@@ -1,5 +1,5 @@
 <?php
-namespace Sil\IdpPw\PasswordStore\IdBroker;
+namespace Sil\IdpPw\PasswordStore\Google;
 
 use Google_Client;
 use Google_Service_Directory;
