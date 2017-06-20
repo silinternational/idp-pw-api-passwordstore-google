@@ -2,5 +2,6 @@
 local.env
 *.local.*
 nbproject/
+*.p12
 .vagrant/
 vendor/
