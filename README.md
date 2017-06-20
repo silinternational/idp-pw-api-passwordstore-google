@@ -13,5 +13,7 @@
    <http://admin.google.com/> and, under Security, Advanced, Manage API Client
    Access, grant your Client ID access to the following scope:  
    `https://www.googleapis.com/auth/admin.directory.user`
-7. See the `local.env.dist` file to know what environment variables to provide
+7. Set up a delegated admin account in Google Apps, authorized to make changes
+   to users. You will use that email address as the value for an env. var.
+8. See the `local.env.dist` file to know what environment variables to provide
    when using this library.
