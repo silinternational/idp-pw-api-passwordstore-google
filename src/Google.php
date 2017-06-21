@@ -6,11 +6,13 @@ use Google_Client;
 use Google_Service_Directory;
 use Google_Service_Directory_Resource_Users;
 use Google_Service_Directory_User;
+use InvalidArgumentException;
 use Sil\IdpPw\Common\PasswordStore\AccountLockedException;
 use Sil\IdpPw\Common\PasswordStore\PasswordStoreInterface;
 use Sil\IdpPw\Common\PasswordStore\UserNotFoundException;
 use Sil\IdpPw\Common\PasswordStore\UserPasswordMeta;
 use yii\base\Component;
+use yii\helpers\Json;
 
 class Google extends Component implements PasswordStoreInterface
 {
@@ -40,7 +42,10 @@ class Google extends Component implements PasswordStoreInterface
      */
     public $employeeIdFieldName = 'employee_id';
     
+    public $jsonAuthConfigBase64 = null;
     public $jsonAuthFilePath = null;
+    
+    protected $authConfig = null;
     
     /**
      * Full class path for a user model (which must be a subclass of
@@ -55,25 +60,38 @@ class Google extends Component implements PasswordStoreInterface
     
     public function init()
     {
-        if ( ! empty($this->jsonAuthFilePath)) {
+        if ( ! empty($this->jsonAuthConfigBase64)) {
+            $jsonAuthConfig = \base64_decode($this->jsonAuthConfigBase64);
+        } elseif ( ! empty($this->jsonAuthFilePath)) {
             if ( ! file_exists($this->jsonAuthFilePath)) {
                 throw new InvalidArgumentException(sprintf(
                     'JSON auth file path of %s provided, but no such file exists.',
                     var_export($this->jsonAuthFilePath, true)
                 ), 1497897359);
             }
+            $jsonAuthConfig = \file_get_contents($this->jsonAuthFilePath);
         }
+        
+        if (empty($jsonAuthConfig)) {
+            throw new InvalidArgumentException(
+                'No JSON auth config was provided. Please provide either a '
+                . 'jsonAuthFilePath or a jsonAuthConfigBase64.',
+                1498056435
+            );
+        } else {
+            $this->authConfig = Json::decode($jsonAuthConfig);
+        }
+        
         $requiredProperties = [
             'applicationName',
             'delegatedAdminEmail',
             'emailFieldName',
             'employeeIdFieldName',
-            'jsonAuthFilePath',
             'userActiveRecordClass',
         ];
         foreach ($requiredProperties as $requiredProperty) {
             if (empty($requiredProperty)) {
-                throw new \InvalidArgumentException(sprintf(
+                throw new InvalidArgumentException(sprintf(
                     'You must provide a value for %s (found %s).',
                     $requiredProperty,
                     var_export($this->$requiredProperty, true)
@@ -89,7 +107,7 @@ class Google extends Component implements PasswordStoreInterface
         if ($this->googleClient === null) {
             $googleClient = new Google_Client();
             $googleClient->setApplicationName($this->applicationName);
-            $googleClient->setAuthConfig($this->jsonAuthFilePath);
+            $googleClient->setAuthConfig($this->authConfig);
             $googleClient->addScope(
                 Google_Service_Directory::ADMIN_DIRECTORY_USER
             );

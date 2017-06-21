@@ -20,3 +20,6 @@ depsupdate:
 	docker-compose run --rm cli composer update --no-scripts
 
 test: deps behat
+
+testci:
+	docker-compose run --rm cli bash -c "/data/run-tests.sh"

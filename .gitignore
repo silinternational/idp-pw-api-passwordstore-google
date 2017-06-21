@@ -1,3 +1,5 @@
+*.aes
+codeship.env
 .idea/
 local.env
 *.local.*

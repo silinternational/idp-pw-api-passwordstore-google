@@ -1,0 +1,8 @@
+test:
+    image: silintl/php7:latest
+    volumes:
+        - ./:/data
+    environment:
+        TEST_GOOGLE_PWSTORE_CONFIG_applicationName: idpGooglePwStoreTestsByCI
+    encrypted_env_file: codeship.env.encrypted
+    working_dir: /data
