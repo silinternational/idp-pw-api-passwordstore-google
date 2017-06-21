@@ -1,0 +1,5 @@
+default:
+    suites:
+        google:
+            paths:    [ %paths.base%/../features/google.feature ]
+            contexts: [ Sil\IdpPw\PasswordStore\Google\Behat\Context\GoogleContext ]
