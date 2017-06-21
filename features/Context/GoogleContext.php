@@ -27,6 +27,11 @@ class GoogleContext implements Context
         require_once __DIR__ . '/../../vendor/yiisoft/yii2/Yii.php';
     }
     
+    protected function generateSecurePassword()
+    {
+        return \base64_encode(\random_bytes(33));
+    }
+    
     /**
      * @Given I can make authenticated calls to Google
      */
@@ -74,9 +79,13 @@ class GoogleContext implements Context
     public function iTryToSetASpecificUsersPassword()
     {
         try {
+            $newPassword = Env::get('TEST_GOOGLE_USER_NEW_PASSWORD');
+            if (empty($newPassword)) {
+                $newPassword = $this->generateSecurePassword();
+            }
             $this->userPasswordMeta = $this->googlePasswordStore->set(
                 12345,
-                Env::requireEnv('TEST_GOOGLE_USER_NEW_PASSWORD')
+                $newPassword
             );
         } catch (Exception $e) {
             $this->exceptionThrown = $e;
