@@ -3,15 +3,24 @@ namespace Sil\IdpPw\PasswordStore\Google\Behat\Context;
 
 use Behat\Behat\Tester\Exception\PendingException;
 use Behat\Behat\Context\Context;
+use Exception;
+use PHPUnit\Framework\Assert;
 use Sil\IdpPw\Common\PasswordStore\PasswordStoreInterface;
+use Sil\IdpPw\Common\PasswordStore\UserPasswordMeta;
 use Sil\IdpPw\PasswordStore\Google\Behat\DummyUser;
 use Sil\IdpPw\PasswordStore\Google\Google as GooglePasswordStore;
 use Sil\PhpEnv\Env;
 
 class GoogleContext implements Context
 {
+    /** @var Exception|null */
+    protected $exceptionThrown = null;
+    
     /** @var PasswordStoreInterface */
     protected $googlePasswordStore;
+    
+    /** @var UserPasswordMeta */
+    protected $userPasswordMeta;
     
     public function __construct()
     {
@@ -32,11 +41,15 @@ class GoogleContext implements Context
     }
 
     /**
-     * @When I ask Google for a specific user's metadata
+     * @When I try to get a specific user's metadata
      */
-    public function iAskGoogleForASpecificUsersMetadata()
+    public function iTryToGetASpecificUsersMetadata()
     {
-        $this->googlePasswordStore->getMeta(12345);
+        try {
+            $this->userPasswordMeta = $this->googlePasswordStore->getMeta(12345);
+        } catch (Exception $e) {
+            $this->exceptionThrown = $e;
+        }
     }
 
     /**
@@ -44,6 +57,29 @@ class GoogleContext implements Context
      */
     public function iShouldGetBackMetadataAboutThatUsersPassword()
     {
-        throw new PendingException();
+        Assert::assertInstanceOf(UserPasswordMeta::class, $this->userPasswordMeta);
+    }
+
+    /**
+     * @Then an exception should not have been thrown
+     */
+    public function anExceptionShouldNotHaveBeenThrown()
+    {
+        Assert::assertNull($this->exceptionThrown);
+    }
+
+    /**
+     * @When I try to set a specific user's password
+     */
+    public function iTryToSetASpecificUsersPassword()
+    {
+        try {
+            $this->userPasswordMeta = $this->googlePasswordStore->set(
+                12345,
+                Env::requireEnv('TEST_GOOGLE_USER_NEW_PASSWORD')
+            );
+        } catch (Exception $e) {
+            $this->exceptionThrown = $e;
+        }
     }
 }
