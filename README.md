@@ -17,3 +17,25 @@
    to users. You will use that email address as the value for an env. var.
 8. See the `local.env.dist` file to know what environment variables to provide
    when using this library.
+
+## Example Configuration
+
+    $googlePasswordStore = new GooglePasswordStore([
+        
+        // Required config fields (dummy values are shown here):
+        'applicationName' => 'Name of Your Application',
+        'delegatedAdminEmail' => 'some_admin@yourgoogledomain.com',
+        
+        // You must provide one of these two fields:
+        'jsonAuthConfigBase64' => '...', // A base64-encoded string of the JSON
+                                         // auth file provided by Google.
+        'jsonAuthFilePath' => '/somewhere/in/your/filesystem/google-auth.json',
+        
+        // Optional config fields (current defaults are shown here):
+        'emailFieldName' => 'email',
+        'employeeIdFieldName' => 'employee_id',
+        'userActiveRecordClass' => '\common\models\User',
+    ]);
+
+For details about what each of those fields is used for, see the documenting
+comments in the `/src/Google.php` file.
